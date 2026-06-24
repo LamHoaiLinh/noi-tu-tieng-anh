@@ -4,14 +4,14 @@
   const AVATARS = ["😀", "😎", "🤓", "🦊", "🐼", "🐯", "🐸", "🦁", "🐵", "🐧", "🦄", "🚀", "🌟", "🔥", "🍀", "🎯"];
   const REACTIONS = ["❤️", "😂", "🔥", "👏", "💡"];
   const STORAGE_KEYS = {
-    apiUrl: "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec",
+    apiUrl: "ewc_api_url",
     playerId: "ewc_player_id",
     nick: "ewc_nick",
     avatar: "ewc_avatar",
     theme: "ewc_theme",
     sound: "ewc_sound"
   };
-
+  const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec";
   const $ = (id) => document.getElementById(id);
   const state = {
     apiUrl: "",

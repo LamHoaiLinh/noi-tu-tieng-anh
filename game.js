@@ -32,7 +32,8 @@
     soundOn: localStorage.getItem(STORAGE_KEYS.sound) !== "off",
     lastEventKey: "",
     countdownInterval: null,
-    pendingRequest: false
+    pendingRequest: false,
+    noticeTimer: null
   };
 
   function init() {
@@ -284,18 +285,27 @@
     const word = input.value.trim().toLowerCase();
     if (!word) return;
     setWordControlsDisabled(true);
+    showBigNotice("Đang chấm từ...", `Đã nhận từ “${word}”. Nếu bạn bấm nộp sát giờ, server sẽ tính theo thời điểm bấm gửi, không tính theo lúc Google Sheets xử lý xong.`, "pending", 6000);
     try {
-      const res = await api("submitWord", { roomCode: state.roomCode, playerId: state.playerId, word });
+      const res = await api("submitWord", { roomCode: state.roomCode, playerId: state.playerId, word, clientSubmittedAt: Date.now() });
       renderState(res.state);
       $("wordInput").value = "";
       $("overlayWordInput").value = "";
       if (res.accepted) {
-        toast(`Đúng: ${word} (+${res.scoreDelta} điểm).`, "success");
+        const msg = res.message || `Đúng: ${word} (+${res.scoreDelta} điểm).`;
+        toast(msg, "success");
+        showBigNotice("Cộng điểm", `✅ ${msg}`, "success", 3200);
         playTone("success");
       } else {
-        toast(res.message || "Từ không hợp lệ, mất lượt.", "error");
+        const msg = res.message || "Từ không hợp lệ, mất lượt.";
+        toast(msg, "error");
+        showBigNotice("Mất lượt", `⚠️ ${msg}`, "error", 4200);
         playTone("error");
       }
+    } catch (err) {
+      const msg = err.message || String(err);
+      showBigNotice("Chưa nộp được", msg, "error", 5200);
+      playTone("error");
     } finally {
       setWordControlsDisabled(false);
       if (isMyTurn()) input.focus();
@@ -304,16 +314,25 @@
 
   async function passTurn() {
     if (!isMyTurn()) {
-      toast("Chưa đến lượt bạn hoặc đội của bạn.", "error");
+      const msg = "Chưa đến lượt bạn hoặc đội của bạn.";
+      toast(msg, "error");
+      showBigNotice("Chưa đến lượt", msg, "error", 2800);
       return;
     }
     setWordControlsDisabled(true);
+    showBigNotice("Đang bỏ qua lượt...", "Server đang ghi nhận thao tác bỏ qua lượt.", "pending", 5000);
     try {
-      const res = await api("passTurn", { roomCode: state.roomCode, playerId: state.playerId });
+      const res = await api("passTurn", { roomCode: state.roomCode, playerId: state.playerId, clientSubmittedAt: Date.now() });
       renderState(res.state);
       $("wordInput").value = "";
       $("overlayWordInput").value = "";
-      toast(res.message || "Đã bỏ qua lượt.", "error");
+      const msg = res.message || "Đã bỏ qua lượt.";
+      toast(msg, "error");
+      showBigNotice("Trừ điểm", `⚠️ ${msg}`, "error", 4200);
+      playTone("error");
+    } catch (err) {
+      const msg = err.message || String(err);
+      showBigNotice("Chưa bỏ qua được", msg, "error", 5200);
       playTone("error");
     } finally {
       setWordControlsDisabled(false);
@@ -573,10 +592,18 @@
     if (eventKey === state.lastEventKey) return;
     state.lastEventKey = eventKey;
     if (!state.room.lastEvent) return;
-    const msg = state.room.lastEvent.toLowerCase();
-    if (msg.includes("đúng")) playTone("success");
-    else if (msg.includes("sai") || msg.includes("hết giờ") || msg.includes("không hợp lệ")) playTone("error");
-    else if (msg.includes("lượt")) playTone("turn");
+    const raw = state.room.lastEvent;
+    const msg = raw.toLowerCase();
+    if (msg.includes("đúng") || msg.includes("+")) {
+      playTone("success");
+      showBigNotice("Thông báo điểm", raw, "success", 2600);
+    } else if (msg.includes("sai") || msg.includes("hết giờ") || msg.includes("không hợp lệ") || msg.includes("bỏ qua") || msg.includes("mất")) {
+      playTone("error");
+      showBigNotice("Thông báo lượt", raw, "error", 3200);
+    } else if (msg.includes("lượt") || msg.includes("bắt đầu") || msg.includes("kết thúc")) {
+      playTone("turn");
+      showBigNotice("Thông báo", raw, "info", 2600);
+    }
   }
 
   function isMyTurn() {
@@ -691,6 +718,19 @@
     el.style.bottom = `${10 + Math.random() * 28}%`;
     host.appendChild(el);
     setTimeout(() => el.remove(), 1900);
+  }
+
+  function showBigNotice(title, message, type = "info", duration = 3200) {
+    const box = $("resultNotice");
+    if (!box) return;
+    const icon = type === "success" ? "✅" : type === "error" ? "⚠️" : type === "pending" ? "⏳" : "ℹ️";
+    $("resultNoticeIcon").textContent = icon;
+    $("resultNoticeTitle").textContent = title || "Thông báo";
+    $("resultNoticeText").textContent = message || "";
+    box.className = `result-notice ${type}`;
+    box.classList.remove("hidden");
+    if (state.noticeTimer) clearTimeout(state.noticeTimer);
+    state.noticeTimer = setTimeout(() => box.classList.add("hidden"), duration);
   }
 
   function toast(message, type = "info", duration = 3200) {

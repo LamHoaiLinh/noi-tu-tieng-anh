@@ -430,3 +430,59 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
   .overlay-timer strong { font-size: 32px; }
   .overlay-actions { grid-template-columns: 1fr; }
 }
+
+.result-notice {
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  z-index: 90;
+  width: min(620px, calc(100vw - 24px));
+  pointer-events: none;
+  animation: noticeDrop .2s ease;
+}
+.result-notice.hidden { display: none; }
+.result-notice-card {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border-radius: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  background: var(--frame);
+  box-shadow: 0 22px 55px rgba(43,43,43,.22);
+  backdrop-filter: blur(10px);
+}
+.result-notice-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(200,162,200,.20);
+  font-size: 26px;
+}
+.result-notice-body { min-width: 0; }
+.result-notice-body strong {
+  display: block;
+  font-size: clamp(17px, 3vw, 22px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.result-notice-body p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.result-notice.success .result-notice-card { border-color: rgba(92, 170, 112, .45); background: linear-gradient(135deg, var(--frame), rgba(167,232,189,.42)); }
+.result-notice.error .result-notice-card { border-color: rgba(190, 92, 92, .45); background: linear-gradient(135deg, var(--frame), rgba(247,184,184,.48)); }
+.result-notice.pending .result-notice-card { border-color: rgba(200,162,200,.55); background: linear-gradient(135deg, var(--frame), rgba(200,162,200,.36)); }
+@keyframes noticeDrop { from { opacity: 0; transform: translate(-50%, -14px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 720px) {
+  .result-notice { top: 10px; width: calc(100vw - 18px); }
+  .result-notice-card { grid-template-columns: 44px minmax(0, 1fr); border-radius: 20px; padding: 12px; }
+  .result-notice-icon { width: 44px; height: 44px; border-radius: 15px; font-size: 23px; }
+}

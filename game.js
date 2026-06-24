@@ -14,7 +14,7 @@
   const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec";
   const $ = (id) => document.getElementById(id);
   const state = {
-    apiUrl: "",
+    apiUrl: localStorage.getItem(STORAGE_KEYS.apiUrl) || DEFAULT_API_URL,
     roomCode: "",
     playerId: localStorage.getItem(STORAGE_KEYS.playerId) || randomId("P"),
     nickname: localStorage.getItem(STORAGE_KEYS.nick) || "",

@@ -11,10 +11,10 @@
     theme: "ewc_theme",
     sound: "ewc_sound"
   };
-
+  const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec";
   const $ = (id) => document.getElementById(id);
   const state = {
-    apiUrl: "",
+    apiUrl: "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec",
     roomCode: "",
     playerId: localStorage.getItem(STORAGE_KEYS.playerId) || randomId("P"),
     nickname: localStorage.getItem(STORAGE_KEYS.nick) || "",

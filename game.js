@@ -4,7 +4,7 @@
   const AVATARS = ["😀", "😎", "🤓", "🦊", "🐼", "🐯", "🐸", "🦁", "🐵", "🐧", "🦄", "🚀", "🌟", "🔥", "🍀", "🎯"];
   const REACTIONS = ["❤️", "😂", "🔥", "👏", "💡"];
   const STORAGE_KEYS = {
-    apiUrl: "ewc_api_url",
+    apiUrl: "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec",
     playerId: "ewc_player_id",
     nick: "ewc_nick",
     avatar: "ewc_avatar",

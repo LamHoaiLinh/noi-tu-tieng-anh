@@ -40,12 +40,31 @@
           </div>
         </div>
 
+        <div class="open-rooms panel-card">
+          <div class="section-title row-between">
+            <div>
+              <h3>Phòng đang mở</h3>
+              <p>Người chơi có thể bấm vào phòng để điền mã tự động. Phòng có khóa cần nhập mật khẩu.</p>
+            </div>
+            <button id="refreshRoomsBtn" class="soft-btn" type="button">Làm mới</button>
+          </div>
+          <div id="openRoomsList" class="open-rooms-list">Chưa tải danh sách phòng.</div>
+        </div>
+
         <div class="lobby-grid">
           <form id="createForm" class="panel-card" autocomplete="off">
             <div class="section-title">
               <h3>Tạo phòng</h3>
               <p>Thiết lập luật chơi trước khi mời người khác.</p>
             </div>
+            <label class="field">
+              <span>Tên phòng</span>
+              <input id="roomName" type="text" maxlength="40" placeholder="Ví dụ: Phòng luyện tiếng Anh tối nay" />
+            </label>
+            <label class="field">
+              <span>Mật khẩu phòng nếu cần</span>
+              <input id="roomPassword" type="password" maxlength="24" placeholder="Bỏ trống nếu phòng công khai" />
+            </label>
             <label class="field">
               <span>Nickname chủ phòng</span>
               <input id="hostNick" type="text" maxlength="24" placeholder="Ví dụ: Linh" required />
@@ -118,6 +137,10 @@
             <label class="field">
               <span>Room Code</span>
               <input id="joinRoomCode" type="text" maxlength="6" placeholder="ABC123" required />
+            </label>
+            <label class="field">
+              <span>Mật khẩu phòng nếu có</span>
+              <input id="joinRoomPassword" type="password" maxlength="24" placeholder="Chỉ nhập khi phòng có khóa" />
             </label>
             <label class="field">
               <span>Nickname</span>
@@ -198,6 +221,7 @@
               <form id="wordForm" class="word-form" autocomplete="off">
                 <input id="wordInput" type="text" minlength="3" maxlength="32" placeholder="Nhập từ tiếng Anh tiếp theo..." />
                 <button id="submitWordBtn" class="primary-btn" type="submit">Submit</button>
+                <button id="passTurnBtn" class="soft-btn" type="button">Bỏ qua lượt</button>
               </form>
               <div id="validationHint" class="validation-hint">Từ hợp lệ sẽ được cộng điểm và cập nhật cho tất cả người chơi.</div>
             </div>
@@ -234,6 +258,35 @@
     </main>
   </div>
 
+  <div id="turnOverlay" class="turn-overlay hidden" role="dialog" aria-modal="true">
+    <div class="turn-overlay-card">
+      <div class="turn-overlay-head">
+        <div>
+          <span class="pill">Đến lượt bạn</span>
+          <h3 id="overlayTurnTitle">Nhập từ nối tiếp</h3>
+          <p id="overlayRuleText">Từ cần nối đang được tải...</p>
+        </div>
+        <div class="overlay-timer">
+          <strong id="overlayTimerNumber">--</strong>
+          <span>giây</span>
+        </div>
+      </div>
+      <div class="progress-track"><div id="overlayTimerBar" class="progress-bar"></div></div>
+      <div class="overlay-current-word">
+        <span>Từ hiện tại</span>
+        <strong id="overlayCurrentWord">---</strong>
+      </div>
+      <form id="overlayWordForm" class="overlay-word-form" autocomplete="off">
+        <input id="overlayWordInput" type="text" minlength="3" maxlength="32" placeholder="Nhập từ tiếng Anh tiếp theo..." />
+        <div class="overlay-actions">
+          <button id="overlaySubmitBtn" class="primary-btn" type="submit">Nộp từ</button>
+          <button id="overlayPassBtn" class="danger-btn" type="button">Bỏ qua lượt</button>
+        </div>
+      </form>
+      <div class="validation-hint">Bỏ qua lượt sẽ mất 1 điểm và chuyển lượt cho người tiếp theo.</div>
+    </div>
+  </div>
+
   <div id="configModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="section-title">
@@ -256,9 +309,9 @@
 
   <script>
     window.EWC_CONFIG = {
-      API_URL: "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec",
-      POLL_MIN_MS: 800,
-      POLL_MAX_MS: 1200
+      API_URL: "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE",
+      POLL_MIN_MS: 1100,
+      POLL_MAX_MS: 1600
     };
   </script>
   <script src="game.js"></script>

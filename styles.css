@@ -316,3 +316,117 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
   .player-row { grid-template-columns: 38px minmax(0, 1fr) auto; }
   .avatar { width: 38px; height: 38px; }
 }
+
+.open-rooms { margin-top: 18px; }
+.open-rooms-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+.empty-rooms {
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255,255,255,.12);
+  line-height: 1.45;
+}
+.room-card-mini {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 13px;
+  background: rgba(255, 255, 255, .20);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+  min-width: 0;
+}
+.room-card-mini:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: rgba(200, 162, 200, .20);
+  box-shadow: 0 12px 24px rgba(82, 64, 82, .12);
+}
+.room-card-mini.disabled { opacity: .58; }
+.room-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.room-card-top strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-card-code { font-weight: 900; letter-spacing: .08em; color: var(--text); }
+.room-card-meta { color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.word-form { grid-template-columns: minmax(0, 1fr) auto auto; }
+.turn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(43, 43, 43, .46);
+  backdrop-filter: blur(8px);
+}
+.turn-overlay-card {
+  width: min(720px, 100%);
+  border-radius: 32px;
+  background: var(--frame);
+  border: 1px solid var(--border);
+  box-shadow: 0 26px 70px rgba(0,0,0,.28);
+  padding: clamp(18px, 4vw, 28px);
+  animation: turnPop .22s ease;
+}
+@keyframes turnPop { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.turn-overlay-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+.turn-overlay-head h3 {
+  margin-top: 10px;
+  font-size: clamp(26px, 5vw, 42px);
+  line-height: 1.06;
+  overflow-wrap: anywhere;
+}
+.turn-overlay-head p { color: var(--muted); margin-top: 8px; line-height: 1.45; overflow-wrap: anywhere; }
+.overlay-timer {
+  width: 102px;
+  height: 102px;
+  border-radius: 32px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(200,162,200,.28), rgba(247,184,184,.32));
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.overlay-timer strong { font-size: 38px; line-height: 1; }
+.overlay-timer span { font-size: 12px; color: var(--muted); margin-top: -24px; }
+.overlay-current-word {
+  margin: 18px 0;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: rgba(200,162,200,.14);
+  padding: 14px 16px;
+}
+.overlay-current-word span { display: block; color: var(--muted); font-size: 13px; font-weight: 800; }
+.overlay-current-word strong {
+  display: block;
+  font-size: clamp(44px, 10vw, 86px);
+  line-height: 1.02;
+  letter-spacing: -.04em;
+  overflow-wrap: anywhere;
+}
+.overlay-word-form { display: flex; flex-direction: column; gap: 12px; }
+.overlay-word-form input { min-height: 58px; font-size: 20px; font-weight: 800; }
+.overlay-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.overlay-actions button { width: 100%; }
+@media (max-width: 720px) {
+  .word-form { grid-template-columns: 1fr; }
+  .open-rooms-list { grid-template-columns: 1fr; }
+  .turn-overlay { padding: 10px; align-items: end; }
+  .turn-overlay-card { border-radius: 26px 26px 18px 18px; max-height: calc(100vh - 20px); overflow-y: auto; }
+  .turn-overlay-head { flex-direction: column; }
+  .overlay-timer { width: 86px; height: 86px; border-radius: 26px; }
+  .overlay-timer strong { font-size: 32px; }
+  .overlay-actions { grid-template-columns: 1fr; }
+}

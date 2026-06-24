@@ -11,10 +11,10 @@
     theme: "ewc_theme",
     sound: "ewc_sound"
   };
-  const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzmefmdvYd_8PgLcg-iGANpzXHXxUL5pExSTc-s5hjP0un4JhCeihQm42uSSRAIYf5e/exec";
+
   const $ = (id) => document.getElementById(id);
   const state = {
-    apiUrl: localStorage.getItem(STORAGE_KEYS.apiUrl) || DEFAULT_API_URL,
+    apiUrl: "",
     roomCode: "",
     playerId: localStorage.getItem(STORAGE_KEYS.playerId) || randomId("P"),
     nickname: localStorage.getItem(STORAGE_KEYS.nick) || "",
@@ -25,7 +25,9 @@
     chat: [],
     reactions: [],
     pollTimer: null,
+    lobbyPollTimer: null,
     lastVersion: 0,
+    turnOverlayVisible: false,
     lastReactionSeen: new Set(),
     soundOn: localStorage.getItem(STORAGE_KEYS.sound) !== "off",
     lastEventKey: "",
@@ -42,6 +44,7 @@
     hydrateLobbyFromUrl();
     $("soundToggle").textContent = state.soundOn ? "🔊" : "🔇";
     if (!state.apiUrl) openConfigModal("Bạn cần dán URL Apps Script Web App trước khi chơi.");
+    startLobbyRoomPolling();
   }
 
   function initConfig() {
@@ -82,10 +85,14 @@
     $("infiniteMode").addEventListener("change", () => $("totalRounds").disabled = $("infiniteMode").checked);
     $("createForm").addEventListener("submit", onCreateRoom);
     $("joinForm").addEventListener("submit", onJoinRoom);
+    $("refreshRoomsBtn").addEventListener("click", () => loadOpenRooms(false));
     $("leaveBtn").addEventListener("click", leaveRoom);
     $("copyLinkBtn").addEventListener("click", copyInviteLink);
     $("startGameBtn").addEventListener("click", startGame);
     $("wordForm").addEventListener("submit", submitWord);
+    $("overlayWordForm").addEventListener("submit", submitOverlayWord);
+    $("passTurnBtn").addEventListener("click", passTurn);
+    $("overlayPassBtn").addEventListener("click", passTurn);
     $("chatForm").addEventListener("submit", sendChat);
     $("clearChatViewBtn").addEventListener("click", () => { $("chatList").innerHTML = ""; toast("Đã xóa phần hiển thị chat trên máy bạn."); });
     document.querySelectorAll(".team-btn").forEach(btn => btn.addEventListener("click", () => setTeam(btn.dataset.team)));
@@ -102,6 +109,63 @@
     $("reactionBar").querySelectorAll("button").forEach(btn => btn.addEventListener("click", () => sendReaction(btn.dataset.emoji)));
   }
 
+  function startLobbyRoomPolling() {
+    stopLobbyRoomPolling();
+    const run = async () => {
+      if (!state.roomCode && state.apiUrl) await loadOpenRooms(true);
+      const min = 4500;
+      const max = 6500;
+      state.lobbyPollTimer = setTimeout(run, Math.floor(min + Math.random() * (max - min)));
+    };
+    run();
+  }
+
+  function stopLobbyRoomPolling() {
+    if (state.lobbyPollTimer) clearTimeout(state.lobbyPollTimer);
+    state.lobbyPollTimer = null;
+  }
+
+  async function loadOpenRooms(silent = true) {
+    const box = $("openRoomsList");
+    if (!state.apiUrl) {
+      box.innerHTML = `<div class="empty-rooms">Cần cấu hình Apps Script trước để tải danh sách phòng.</div>`;
+      return;
+    }
+    try {
+      const res = await api("listRooms", {}, { silent: true, noPending: true });
+      renderOpenRooms(res.rooms || []);
+    } catch (err) {
+      if (!silent) toast("Chưa tải được danh sách phòng. Kiểm tra Apps Script URL.", "error");
+      box.innerHTML = `<div class="empty-rooms">Chưa tải được danh sách phòng.</div>`;
+    }
+  }
+
+  function renderOpenRooms(rooms) {
+    const box = $("openRoomsList");
+    if (!rooms.length) {
+      box.innerHTML = `<div class="empty-rooms">Chưa có phòng nào đang mở. Anh có thể tạo phòng mới bên dưới.</div>`;
+      return;
+    }
+    box.innerHTML = rooms.map(r => {
+      const canJoin = r.status === "lobby" && Number(r.activeHumans || 0) < Number(r.maxPlayers || 12);
+      const statusText = r.status === "lobby" ? "Đang chờ" : "Đang chơi";
+      const ruleText = r.chainRule === "first-letter" ? "nối chữ đầu" : "nối chữ cuối";
+      return `<button class="room-card-mini ${canJoin ? "" : "disabled"}" type="button" data-room="${escapeAttr(r.roomCode)}" ${canJoin ? "" : "disabled"}>
+        <div class="room-card-top"><strong>${escapeHtml(r.roomName || "Phòng nối từ")}</strong><span>${r.passwordProtected ? "🔒" : "🔓"}</span></div>
+        <div class="room-card-code">${escapeHtml(r.roomCode)} · ${escapeHtml(statusText)}</div>
+        <div class="room-card-meta">${Number(r.activeHumans || 0)}/${Number(r.maxPlayers || 12)} người · ${Number(r.botCount || 0)} bot · ${escapeHtml(r.mode === "team" ? "Team Battle" : "Đấu cá nhân")}</div>
+        <div class="room-card-meta">${escapeHtml(r.topic || "All")} · ${escapeHtml(ruleText)} · ${Number(r.turnSeconds || 30)} giây/lượt</div>
+      </button>`;
+    }).join("");
+    box.querySelectorAll("button[data-room]").forEach(btn => btn.addEventListener("click", () => selectRoomFromList(btn.dataset.room)));
+  }
+
+  function selectRoomFromList(roomCode) {
+    $("joinRoomCode").value = sanitizeRoom(roomCode);
+    $("joinNick").focus();
+    toast(`Đã chọn phòng ${sanitizeRoom(roomCode)}. Nhập nickname rồi bấm Join.`, "success");
+  }
+
   async function onCreateRoom(event) {
     event.preventDefault();
     if (!ensureApi()) return;
@@ -110,6 +174,8 @@
     saveIdentity(nickname, avatar);
     const topic = $("topicSelect").value === "Custom" ? sanitizeTopic($("customTopic").value || "Custom") : $("topicSelect").value;
     const payload = {
+      roomName: sanitizeTopic($("roomName").value || `${nickname} - Nối từ`),
+      roomPassword: $("roomPassword").value.trim(),
       playerId: state.playerId,
       nickname,
       avatar,
@@ -135,7 +201,7 @@
     const nickname = sanitizeName($("joinNick").value);
     const avatar = $("joinAvatar").value || AVATARS[0];
     saveIdentity(nickname, avatar);
-    const res = await api("joinRoom", { roomCode, playerId: state.playerId, nickname, avatar });
+    const res = await api("joinRoom", { roomCode, playerId: state.playerId, nickname, avatar, roomPassword: $("joinRoomPassword").value.trim() });
     enterRoom(roomCode, res.state);
     toast(`Đã vào phòng ${roomCode}.`, "success");
     playTone("turn");
@@ -150,6 +216,7 @@
   }
 
   function enterRoom(roomCode, snapshot) {
+    stopLobbyRoomPolling();
     state.roomCode = roomCode;
     $("lobbyScreen").classList.add("hidden");
     $("roomScreen").classList.remove("hidden");
@@ -176,8 +243,8 @@
       } catch (err) {
         console.warn(err);
       } finally {
-        const min = window.EWC_CONFIG?.POLL_MIN_MS || 800;
-        const max = window.EWC_CONFIG?.POLL_MAX_MS || 1200;
+        const min = window.EWC_CONFIG?.POLL_MIN_MS || 1100;
+        const max = window.EWC_CONFIG?.POLL_MAX_MS || 1600;
         state.pollTimer = setTimeout(poll, Math.floor(min + Math.random() * (max - min)));
       }
     };
@@ -204,14 +271,23 @@
 
   async function submitWord(event) {
     event.preventDefault();
-    const input = $("wordInput");
+    await submitWordFromInput($("wordInput"));
+  }
+
+  async function submitOverlayWord(event) {
+    event.preventDefault();
+    await submitWordFromInput($("overlayWordInput"));
+  }
+
+  async function submitWordFromInput(input) {
     const word = input.value.trim().toLowerCase();
     if (!word) return;
-    input.disabled = true;
+    setWordControlsDisabled(true);
     try {
       const res = await api("submitWord", { roomCode: state.roomCode, playerId: state.playerId, word });
       renderState(res.state);
-      input.value = "";
+      $("wordInput").value = "";
+      $("overlayWordInput").value = "";
       if (res.accepted) {
         toast(`Đúng: ${word} (+${res.scoreDelta} điểm).`, "success");
         playTone("success");
@@ -220,9 +296,36 @@
         playTone("error");
       }
     } finally {
-      input.disabled = false;
-      input.focus();
+      setWordControlsDisabled(false);
+      if (isMyTurn()) input.focus();
     }
+  }
+
+  async function passTurn() {
+    if (!isMyTurn()) {
+      toast("Chưa đến lượt bạn hoặc đội của bạn.", "error");
+      return;
+    }
+    setWordControlsDisabled(true);
+    try {
+      const res = await api("passTurn", { roomCode: state.roomCode, playerId: state.playerId });
+      renderState(res.state);
+      $("wordInput").value = "";
+      $("overlayWordInput").value = "";
+      toast(res.message || "Đã bỏ qua lượt.", "error");
+      playTone("error");
+    } finally {
+      setWordControlsDisabled(false);
+    }
+  }
+
+  function setWordControlsDisabled(disabled) {
+    ["wordInput", "overlayWordInput", "submitWordBtn", "overlaySubmitBtn", "passTurnBtn", "overlayPassBtn"].forEach(id => {
+      const el = $(id);
+      if (el) el.disabled = disabled;
+    });
+    if ($("submitWordBtn")) $("submitWordBtn").textContent = disabled ? "Đang gửi..." : "Submit";
+    if ($("overlaySubmitBtn")) $("overlaySubmitBtn").textContent = disabled ? "Đang gửi..." : "Nộp từ";
   }
 
   async function sendChat(event) {
@@ -251,6 +354,7 @@
     state.room = null;
     $("roomScreen").classList.add("hidden");
     $("lobbyScreen").classList.remove("hidden");
+    startLobbyRoomPolling();
     if (location.protocol !== "file:") {
       const url = new URL(location.href);
       url.searchParams.delete("room");
@@ -271,6 +375,7 @@
     renderHeader();
     renderPreGame();
     renderTurn();
+    renderTurnOverlay();
     renderChain();
     renderPlayers();
     renderChat();
@@ -323,6 +428,13 @@
     startCountdown();
   }
 
+  function requiredLetter() {
+    const room = state.room;
+    const currentWord = room?.currentWord || "";
+    if (!currentWord) return "";
+    return room.chainRule === "first-letter" ? currentWord[0] : currentWord[currentWord.length - 1];
+  }
+
   function getTurnMessage(canPlay) {
     const room = state.room;
     if (room.status === "lobby") return "Trò chơi sẽ bắt đầu khi chủ phòng bấm Bắt đầu.";
@@ -333,6 +445,30 @@
     if (canPlay) return `Bạn cần nhập từ tiếng Anh bắt đầu bằng chữ “${required.toUpperCase()}”.`;
     if (room.mode === "team") return `Chờ đội ${room.currentTeam || "-"} nhập từ bắt đầu bằng chữ “${required.toUpperCase()}”.`;
     return `Chờ người chơi hiện tại nhập từ bắt đầu bằng chữ “${required.toUpperCase()}”.`;
+  }
+
+  function renderTurnOverlay() {
+    const overlay = $("turnOverlay");
+    const room = state.room;
+    const myTurn = isMyTurn();
+    if (!room || room.status !== "playing" || !myTurn) {
+      overlay.classList.add("hidden");
+      state.turnOverlayVisible = false;
+      return;
+    }
+    const me = getMe();
+    const current = room.currentWord || "---";
+    const required = requiredLetter();
+    $("overlayCurrentWord").textContent = current;
+    $("overlayTurnTitle").textContent = room.mode === "team" ? `Đội ${me.team} đến lượt` : "Đến lượt bạn";
+    $("overlayRuleText").textContent = required ? `Nhập từ tiếng Anh bắt đầu bằng chữ “${required.toUpperCase()}”.` : "Nhập từ tiếng Anh tiếp theo.";
+    const wasHidden = overlay.classList.contains("hidden");
+    overlay.classList.remove("hidden");
+    if (wasHidden || !state.turnOverlayVisible) {
+      playTone("turn");
+      setTimeout(() => $("overlayWordInput").focus(), 80);
+    }
+    state.turnOverlayVisible = true;
   }
 
   function startCountdown() {
@@ -351,6 +487,8 @@
     if (!room || room.status !== "playing") {
       $("timerNumber").textContent = "--";
       $("timerBar").style.width = "0%";
+      if ($("overlayTimerNumber")) $("overlayTimerNumber").textContent = "--";
+      if ($("overlayTimerBar")) $("overlayTimerBar").style.width = "0%";
       return;
     }
     const started = new Date(room.turnStartedAt).getTime();
@@ -360,6 +498,8 @@
     const pct = Math.max(0, Math.min(100, ((turnMs - elapsed) / turnMs) * 100));
     $("timerNumber").textContent = String(left);
     $("timerBar").style.width = `${pct}%`;
+    if ($("overlayTimerNumber")) $("overlayTimerNumber").textContent = String(left);
+    if ($("overlayTimerBar")) $("overlayTimerBar").style.width = `${pct}%`;
   }
 
   function renderChain() {
@@ -450,7 +590,7 @@
 
   async function api(action, payload = {}, opts = {}) {
     if (!ensureApi(opts.silent)) throw new Error("Missing API URL");
-    state.pendingRequest = true;
+    if (!opts.noPending) state.pendingRequest = true;
     try {
       const res = await fetch(state.apiUrl, {
         method: "POST",
@@ -467,7 +607,7 @@
       if (!opts.silent) toast(err.message || String(err), "error", 5200);
       throw err;
     } finally {
-      state.pendingRequest = false;
+      if (!opts.noPending) state.pendingRequest = false;
     }
   }
 
@@ -493,6 +633,7 @@
     localStorage.setItem(STORAGE_KEYS.apiUrl, url);
     closeConfigModal();
     toast("Đã lưu URL Apps Script.", "success");
+    loadOpenRooms(false);
   }
 
   function toggleTheme() {

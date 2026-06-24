@@ -33,11 +33,17 @@
     lastEventKey: "",
     countdownInterval: null,
     pendingRequest: false,
-    noticeTimer: null
+    noticeTimer: null,
+    dictionaryReady: false,
+    dictionaryLoading: false,
+    dictionaryWords: new Set(),
+    dictionaryCount: 0,
+    dictionaryVersion: ""
   };
 
   function init() {
     initConfig();
+    loadDictionary();
     initTheme();
     fillAvatarSelects();
     wireEvents();
@@ -54,6 +60,63 @@
     const embeddedIsReal = embedded && !embedded.includes("PASTE_APPS_SCRIPT") && /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(embedded);
     state.apiUrl = saved || (embeddedIsReal ? embedded : DEFAULT_API_URL);
     $("scriptUrlInput").value = state.apiUrl;
+  }
+
+
+  function dictionaryUrl() {
+    const configured = (window.EWC_CONFIG && window.EWC_CONFIG.DICTIONARY_URL) || "data/valid_words.json";
+    const params = new URLSearchParams(location.search);
+    const pageVersion = params.get("dict") || params.get("v") || "";
+    const version = pageVersion || (window.EWC_CONFIG && window.EWC_CONFIG.DICTIONARY_VERSION) || "";
+    if (!version) return configured;
+    return configured + (configured.includes("?") ? "&" : "?") + "v=" + encodeURIComponent(version);
+  }
+
+  async function loadDictionary(force = false) {
+    if (state.dictionaryReady && !force) return true;
+    if (state.dictionaryLoading) return false;
+    state.dictionaryLoading = true;
+    try {
+      const res = await fetch(dictionaryUrl(), { cache: force ? "reload" : "default" });
+      if (!res.ok) throw new Error("Không tải được file từ điển JSON trên GitHub.");
+      const data = await res.json();
+      const parsed = parseDictionaryPayload(data);
+      state.dictionaryWords = parsed.set;
+      state.dictionaryCount = parsed.set.size;
+      state.dictionaryVersion = parsed.version || "unknown";
+      state.dictionaryReady = true;
+      toast(`Từ điển JSON đã sẵn sàng: ${state.dictionaryCount.toLocaleString("vi-VN")} từ.`, "success", 2600);
+      return true;
+    } catch (err) {
+      state.dictionaryReady = false;
+      console.warn(err);
+      toast("Chưa tải được từ điển JSON. Kiểm tra file data/valid_words.json trên GitHub.", "error", 5200);
+      return false;
+    } finally {
+      state.dictionaryLoading = false;
+    }
+  }
+
+  function parseDictionaryPayload(data) {
+    const set = new Set();
+    const addWord = (value) => {
+      const w = normalizeClientWord(typeof value === "string" ? value : (value && value.word));
+      if (w && w.length >= 3 && /^[a-z]+$/.test(w)) set.add(w);
+    };
+    if (Array.isArray(data)) {
+      data.forEach(addWord);
+      return { set, version: "array" };
+    }
+    if (data && Array.isArray(data.customWords)) data.customWords.forEach(addWord);
+    if (data && Array.isArray(data.words)) data.words.forEach(addWord);
+    if (data && data.wordsByLetter && typeof data.wordsByLetter === "object") {
+      Object.values(data.wordsByLetter).forEach(list => Array.isArray(list) && list.forEach(addWord));
+    }
+    return { set, version: data && data.version };
+  }
+
+  function normalizeClientWord(value) {
+    return String(value || "").trim().toLowerCase().replace(/[^a-z]/g, "");
   }
 
   function initTheme() {
@@ -282,12 +345,31 @@
   }
 
   async function submitWordFromInput(input) {
-    const word = input.value.trim().toLowerCase();
+    const word = normalizeClientWord(input.value);
     if (!word) return;
+
+    const clientCheck = validateWordClient(word);
+    if (clientCheck.waitDictionary) {
+      showBigNotice("Đang tải từ điển", clientCheck.reason, "pending", 3200);
+      await loadDictionary(true);
+      return;
+    }
+
     setWordControlsDisabled(true);
-    showBigNotice("Đang chấm từ...", `Đã nhận từ “${word}”. Nếu bạn bấm nộp sát giờ, server sẽ tính theo thời điểm bấm gửi, không tính theo lúc Google Sheets xử lý xong.`, "pending", 6000);
+    const pendingText = clientCheck.ok
+      ? `Từ “${word}” có trong từ điển JSON. Đang ghi điểm lên phòng chơi.`
+      : `Từ “${word}” chưa hợp lệ: ${clientCheck.reason} Đang ghi nhận mất lượt.`;
+    showBigNotice("Đang chấm từ...", pendingText, "pending", 6000);
     try {
-      const res = await api("submitWord", { roomCode: state.roomCode, playerId: state.playerId, word, clientSubmittedAt: Date.now() });
+      const res = await api("submitWord", {
+        roomCode: state.roomCode,
+        playerId: state.playerId,
+        word,
+        clientSubmittedAt: Date.now(),
+        clientValidated: clientCheck.ok,
+        clientValidationReason: clientCheck.reason || "",
+        dictionaryVersion: state.dictionaryVersion || ""
+      });
       renderState(res.state);
       $("wordInput").value = "";
       $("overlayWordInput").value = "";
@@ -604,6 +686,23 @@
       playTone("turn");
       showBigNotice("Thông báo", raw, "info", 2600);
     }
+  }
+
+
+  function validateWordClient(word) {
+    if (!word || word.length < 3) return { ok: false, reason: "Từ phải có ít nhất 3 chữ cái." };
+    if (!/^[a-z]+$/.test(word)) return { ok: false, reason: "Chỉ nhập chữ cái tiếng Anh a-z, không dấu, không khoảng trắng." };
+    const room = state.room;
+    if (!room || room.status !== "playing") return { ok: false, reason: "Trận đấu chưa bắt đầu hoặc đã kết thúc." };
+    const current = normalizeClientWord(room.currentWord);
+    if (!current) return { ok: false, reason: "Chưa có từ gốc để nối." };
+    const required = room.chainRule === "first-letter" ? current[0] : current[current.length - 1];
+    if (word[0] !== required) return { ok: false, reason: `Từ phải bắt đầu bằng chữ “${required.toUpperCase()}”.` };
+    const used = new Set((state.usedWords || []).map(w => normalizeClientWord(w.word)).filter(Boolean));
+    if (used.has(word)) return { ok: false, reason: "Từ này đã được dùng trong phòng." };
+    if (!state.dictionaryReady) return { ok: false, waitDictionary: true, reason: "Từ điển JSON chưa tải xong. Vui lòng đợi 1-3 giây hoặc bấm nộp lại." };
+    if (!state.dictionaryWords.has(word)) return { ok: false, reason: "Không tìm thấy từ này trong file data/valid_words.json trên GitHub." };
+    return { ok: true, reason: "" };
   }
 
   function isMyTurn() {

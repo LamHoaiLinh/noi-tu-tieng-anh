@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nối Từ Tiếng Anh</title>
+  <meta name="description" content="Game web multiplayer Nối Từ Tiếng Anh dùng Google Sheets + Apps Script." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">🔗</div>
+        <div>
+          <h1>Nối Từ Tiếng Anh</h1>
+          <p>English Word Chain</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="soundToggle" class="icon-btn" type="button" title="Bật/tắt âm thanh">🔊</button>
+        <button id="themeToggle" class="icon-btn" type="button" title="Đổi sáng/tối">🌙</button>
+        <button id="configBtn" class="soft-btn" type="button" title="Cấu hình link Apps Script">Cấu hình</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="lobbyScreen" class="screen lobby-screen">
+        <div class="hero-card glass-card">
+          <div class="hero-copy">
+            <span class="pill">Multiplayer · Google Sheets Realtime</span>
+            <h2>Chơi nối từ tiếng Anh với bạn bè, bot và đội nhóm.</h2>
+            <p>Tạo phòng, chia sẻ mã phòng, thi đấu theo lượt hoặc Team Battle. Dữ liệu được lưu trên Google Sheets và cập nhật qua Apps Script.</p>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="word-bubble b1">ant</div>
+            <div class="word-bubble b2">test</div>
+            <div class="word-bubble b3">tiger</div>
+            <div class="word-bubble b4">rabbit</div>
+          </div>
+        </div>
+
+        <div class="lobby-grid">
+          <form id="createForm" class="panel-card" autocomplete="off">
+            <div class="section-title">
+              <h3>Tạo phòng</h3>
+              <p>Thiết lập luật chơi trước khi mời người khác.</p>
+            </div>
+            <label class="field">
+              <span>Nickname chủ phòng</span>
+              <input id="hostNick" type="text" maxlength="24" placeholder="Ví dụ: Linh" required />
+            </label>
+            <label class="field">
+              <span>Avatar</span>
+              <select id="hostAvatar"></select>
+            </label>
+            <div class="form-row">
+              <label class="field">
+                <span>Số người tối đa</span>
+                <input id="maxPlayers" type="number" min="2" max="12" value="8" required />
+              </label>
+              <label class="field">
+                <span>Số bot</span>
+                <input id="botCount" type="number" min="0" max="3" value="1" required />
+              </label>
+            </div>
+            <div class="form-row">
+              <label class="field">
+                <span>Thời gian mỗi lượt</span>
+                <input id="turnSeconds" type="number" min="15" max="60" value="30" required />
+              </label>
+              <label class="field">
+                <span>Số vòng</span>
+                <input id="totalRounds" type="number" min="1" max="99" value="10" required />
+              </label>
+            </div>
+            <label class="toggle-line">
+              <input id="infiniteMode" type="checkbox" />
+              <span>Chơi vô hạn</span>
+            </label>
+            <label class="field">
+              <span>Chủ đề từ vựng</span>
+              <select id="topicSelect">
+                <option value="All">All</option>
+                <option value="General">General</option>
+                <option value="Animals">Animals</option>
+                <option value="Food">Food</option>
+                <option value="Technology">Technology</option>
+                <option value="Custom">Tự nhập</option>
+              </select>
+            </label>
+            <label id="customTopicWrap" class="field hidden">
+              <span>Chủ đề tự nhập</span>
+              <input id="customTopic" type="text" maxlength="40" placeholder="Ví dụ: Business" />
+            </label>
+            <label class="field">
+              <span>Kiểu nối từ</span>
+              <select id="chainRule">
+                <option value="last-letter">Nối bằng chữ cái cuối của từ trước</option>
+                <option value="first-letter">Nối bằng chữ cái đầu của từ trước</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Chế độ chơi</span>
+              <select id="gameMode">
+                <option value="solo">Đấu cá nhân</option>
+                <option value="team">Team Battle</option>
+              </select>
+            </label>
+            <button class="primary-btn" type="submit">Tạo Phòng</button>
+          </form>
+
+          <form id="joinForm" class="panel-card" autocomplete="off">
+            <div class="section-title">
+              <h3>Vào phòng</h3>
+              <p>Nhập mã phòng hoặc mở link có sẵn mã phòng.</p>
+            </div>
+            <label class="field">
+              <span>Room Code</span>
+              <input id="joinRoomCode" type="text" maxlength="6" placeholder="ABC123" required />
+            </label>
+            <label class="field">
+              <span>Nickname</span>
+              <input id="joinNick" type="text" maxlength="24" placeholder="Tên hiển thị" required />
+            </label>
+            <label class="field">
+              <span>Avatar</span>
+              <select id="joinAvatar"></select>
+            </label>
+            <button class="primary-btn" type="submit">Join</button>
+            <div class="mini-help">
+              <strong>Luật nhanh:</strong> từ tối thiểu 3 chữ cái, không lặp từ, phải là từ tiếng Anh hợp lệ. Server sẽ kiểm tra lại để hạn chế gian lận.
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="roomScreen" class="screen room-screen hidden">
+        <div class="room-header glass-card">
+          <div class="room-meta">
+            <div class="room-code-box">
+              <span>Room Code</span>
+              <strong id="roomCodeText">------</strong>
+            </div>
+            <button id="copyLinkBtn" class="soft-btn" type="button">Copy link mời</button>
+          </div>
+          <div class="room-status">
+            <span id="roomModeBadge" class="pill">Đấu cá nhân</span>
+            <span id="playersCountText" class="pill">0/12 người</span>
+            <button id="leaveBtn" class="danger-btn" type="button">Thoát</button>
+          </div>
+        </div>
+
+        <div id="preGamePanel" class="pre-game panel-card hidden">
+          <div>
+            <h3>Phòng chờ</h3>
+            <p id="preGameHint">Chủ phòng bấm bắt đầu khi mọi người đã sẵn sàng.</p>
+          </div>
+          <div id="teamChooser" class="team-chooser hidden">
+            <span>Chọn đội:</span>
+            <button data-team="A" class="soft-btn team-btn" type="button">Đội A</button>
+            <button data-team="B" class="soft-btn team-btn" type="button">Đội B</button>
+          </div>
+          <button id="startGameBtn" class="primary-btn hidden" type="button">Bắt đầu</button>
+        </div>
+
+        <div class="game-layout">
+          <section class="play-area">
+            <div class="turn-card glass-card">
+              <div class="turn-topline">
+                <div>
+                  <span class="label">Đến lượt</span>
+                  <h2 id="turnOwnerText">Đang tải...</h2>
+                </div>
+                <div class="timer-wrap">
+                  <div id="timerNumber" class="timer-number">--</div>
+                  <div class="timer-label">giây</div>
+                </div>
+              </div>
+              <div class="progress-track"><div id="timerBar" class="progress-bar"></div></div>
+              <div id="turnMessage" class="turn-message">Chờ dữ liệu phòng...</div>
+            </div>
+
+            <div class="chain-card panel-card">
+              <div class="section-title row-between">
+                <div>
+                  <h3>Chuỗi từ đã nối</h3>
+                  <p id="chainRuleText">Nối bằng chữ cái cuối của từ trước</p>
+                </div>
+                <span id="roundText" class="pill">Vòng 0</span>
+              </div>
+              <div id="chainWords" class="chain-words"></div>
+            </div>
+
+            <div class="input-card panel-card">
+              <span class="label">Từ hiện tại</span>
+              <div id="lastWordText" class="last-word">---</div>
+              <form id="wordForm" class="word-form" autocomplete="off">
+                <input id="wordInput" type="text" minlength="3" maxlength="32" placeholder="Nhập từ tiếng Anh tiếp theo..." />
+                <button id="submitWordBtn" class="primary-btn" type="submit">Submit</button>
+              </form>
+              <div id="validationHint" class="validation-hint">Từ hợp lệ sẽ được cộng điểm và cập nhật cho tất cả người chơi.</div>
+            </div>
+          </section>
+
+          <aside class="side-area">
+            <div class="score-card panel-card">
+              <div class="section-title">
+                <h3>Bảng xếp hạng</h3>
+                <p>Điểm = từ hợp lệ + bonus tốc độ.</p>
+              </div>
+              <div id="teamScoreBox" class="team-score-box hidden"></div>
+              <div id="playersList" class="players-list"></div>
+            </div>
+
+            <div class="chat-card panel-card">
+              <div class="section-title row-between">
+                <div>
+                  <h3>Chat</h3>
+                  <p>Trao đổi nhanh trong phòng.</p>
+                </div>
+                <button id="clearChatViewBtn" class="icon-btn" type="button" title="Chỉ xóa hiển thị trên máy bạn">🧹</button>
+              </div>
+              <div id="chatList" class="chat-list"></div>
+              <form id="chatForm" class="chat-form" autocomplete="off">
+                <input id="chatInput" type="text" maxlength="160" placeholder="Nhập tin nhắn..." />
+                <button class="soft-btn" type="submit">Gửi</button>
+              </form>
+              <div id="reactionBar" class="reaction-bar"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="configModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="section-title">
+        <h3>Cấu hình Apps Script Web App</h3>
+        <p>Dán URL Web App sau khi Deploy để frontend đọc/ghi Google Sheets.</p>
+      </div>
+      <label class="field">
+        <span>Script URL</span>
+        <input id="scriptUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
+      </label>
+      <div class="modal-actions">
+        <button id="saveConfigBtn" class="primary-btn" type="button">Lưu</button>
+        <button id="closeConfigBtn" class="soft-btn" type="button">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastHost" class="toast-host"></div>
+  <div id="floatingHost" class="floating-host" aria-hidden="true"></div>
+
+  <script>
+    window.EWC_CONFIG = {
+      API_URL: "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE",
+      POLL_MIN_MS: 800,
+      POLL_MAX_MS: 1200
+    };
+  </script>
+  <script src="game.js"></script>
+</body>
+</html>

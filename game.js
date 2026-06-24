@@ -50,7 +50,8 @@
   function initConfig() {
     const embedded = (window.EWC_CONFIG && window.EWC_CONFIG.API_URL || "").trim();
     const saved = localStorage.getItem(STORAGE_KEYS.apiUrl) || "";
-    state.apiUrl = saved || (embedded && !embedded.includes("PASTE_APPS_SCRIPT") ? embedded : "");
+    const embeddedIsReal = embedded && !embedded.includes("PASTE_APPS_SCRIPT") && /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(embedded);
+    state.apiUrl = saved || (embeddedIsReal ? embedded : DEFAULT_API_URL);
     $("scriptUrlInput").value = state.apiUrl;
   }
 
